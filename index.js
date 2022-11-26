@@ -1,23 +1,19 @@
 const express = require("express");
 const { createServer } = require("http");
 const WebSocket = require("ws");
-const mysql = require("mysql2");
-const Context = require("@longanphuc/orm-mysql").Context;
-const Player = require("./Model/player_player");
-const Game = require("./Model/game_game");
-const GameInfo = require("./Model/game_gameinfo");
-const Account = require("./Model/account_account");
-const Connection = require("@longanphuc/orm-mysql/connection");
 const { v1: uuidv1, v4: uuidv4 } = require("uuid");
-const axios = require('axios');
-const key ="SqgfZ1SE4v3OKlWezV1ft3PrP3O17zi0pEU2O1FcRQORp5YUjv"
-const URL = process.platform == "win32"?"http://127.0.0.1:8000/" :"https://api.soccerlegend.devmini.com/"
-
+const axios = require("axios");
+const key = "SqgfZ1SE4v3OKlWezV1ft3PrP3O17zi0pEU2O1FcRQORp5YUjv";
+const URL =
+  process.platform == "win32"
+    ? "http://127.0.0.1:8000/"
+    : "https://api.soccerlegend.devmini.com/";
 
 const app = express();
-const port = process.env.PORT || 3000;;
+const port = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
+  req.wrap();
   res.send("<h1>Hello world v: 26-11-2022 01:39</h1>");
 });
 
@@ -53,28 +49,21 @@ wss.on("connection", function (ws, req) {
 
   ws.login = async (data) => {
     try {
-      let account_context = new Context(Account);
-      let account = await account_context.where("_token", data).first();
-      if (account !== undefined) {
-        ws.account = account.toObject();
-        wss.clients.forEach((client) => {
-          if (client.account.id == ws.account.id && client.id != ws.id) {
-            client.send(
-              JSON.stringify({
-                type: "login",
-                data: "",
-              })
-            );
-          }
+      axios
+        .post(URL + "account/get-account", {
+          _token: data,
+          key: key,
+        })
+        .then((res) => {
+          ws.account = res.data.account;
         });
-      }
     } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.createRoom = async (data) => {
-    try{
+    try {
       console.log("createRoom");
       console.log(ws.account);
       if (ws.account._token == data._token) {
@@ -93,13 +82,13 @@ wss.on("connection", function (ws, req) {
           data: "Fail",
         });
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.joinRoom = (data) => {
-    try{
+    try {
       console.log("joinRoom");
       if (ws.account._token == data._token) {
         ws.roomID = data.roomID;
@@ -116,13 +105,13 @@ wss.on("connection", function (ws, req) {
           data: "Fail",
         });
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.onGameBeginStart = (data) => {
-    try{
+    try {
       console.log("onGameBeginStart");
       if (ws.IsMaster) {
         let playerList = [];
@@ -152,7 +141,7 @@ wss.on("connection", function (ws, req) {
           }
           playerTeam.push(client.team);
         });
-  
+
         wss.sendRoom(
           ws.roomID,
           JSON.stringify({
@@ -161,13 +150,13 @@ wss.on("connection", function (ws, req) {
           })
         );
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.disconnectPhoton = (data) => {
-    try{
+    try {
       console.log("disconnectPhoton");
       roomID = ws.roomID;
       ws.roomID = undefined;
@@ -175,13 +164,13 @@ wss.on("connection", function (ws, req) {
       if (ws.IsMaster) {
         ws.setNewMastser(roomID);
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.setNewMastser = (roomID) => {
-    try{
+    try {
       let playerList = [];
       wss.clients.forEach((client) => {
         if (client.roomID == roomID) {
@@ -201,51 +190,58 @@ wss.on("connection", function (ws, req) {
           })
         );
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
 
   ws.sendResult = async (data) => {
-    try{
-      console.log("sendResult")
+    try {
+      console.log("sendResult");
       redScore = data.redScore;
       blueScore = data.blueScore;
       if (ws.IsMaster) {
-        let playerTeam = []
-        wss.clients.forEach(client => {
-          if (client.roomID == ws.roomID){
-            playerTeam.push(client.team)
+        let playerTeam = [];
+        wss.clients.forEach((client) => {
+          if (client.roomID == ws.roomID) {
+            playerTeam.push(client.team);
           }
-        })
+        });
         let data = {
           key: key,
           redScore: redScore,
           blueScore: blueScore,
           playerTeam: playerTeam,
-          master: ws.account.id
-        }
-        console.log(URL + "game/send-game-results")
-        axios.post(URL + "game/send-game-results", data).then((response) => {
-          console.log(response)
-          wss.clients.forEach(async client => {
-            let player_context = new Context(Player)
-            let player = await player_context.find(ws.account.id)
-            client.send(
-              JSON.stringify({
-                type: "endGame",
-                data: JSON.stringify({
-                  player: JSON.stringify(player.toObject()),
-                  gameID: response.data.gameID,
-                }),
-              })
-            );
+          master: ws.account.id,
+        };
+        console.log(URL + "game/send-game-results");
+        axios
+          .post(URL + "game/send-game-results", data)
+          .then((response) => {
+            wss.clients.forEach(async (client) => {
+              axios
+                .post(URL + "player/get-player", {
+                  key: key,
+                  account_id: client.account.id,
+                })
+                .then((res) => {
+                  client.send(
+                    JSON.stringify({
+                      type: "endGame",
+                      data: JSON.stringify({
+                        player: JSON.stringify(res.data.player),
+                        gameID: response.data.gameID,
+                      }),
+                    })
+                  );
+                });
+            });
           })
-        }).catch(function (error) {
-          console.log(error);
-        })    
+          .catch(function (error) {
+            console.log(error);
+          });
       }
-    }catch(err){
+    } catch (err) {
       ws.send("error: " + err.message);
     }
   };
