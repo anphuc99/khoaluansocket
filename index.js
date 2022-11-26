@@ -18,6 +18,10 @@ const {
 const app = express();
 const port = 3000;
 
+app.get('/', (req, res) => {
+  res.send('<h1>Hello world v: 26-11-2022</h1>');
+});
+
 const server = createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -33,6 +37,7 @@ wss.on("connection", function (ws, req) {
   console.log("client joined.");
   ws.id = uuidv4()
   console.log(ws.id)
+  ws.send("v: 26-11-2022")
   ws.on("message", function (data) {
     console.log(data);
     console.log(ws._token);
