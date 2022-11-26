@@ -14,7 +14,6 @@
   "license": "ISC",
   "dependencies": {
     "@longanphuc/orm-mysql": "^1.0.7",
-    "axios": "^1.2.0",
     "express": "^4.17.1",
     "mysql2": "^2.3.3",
     "uuid": "^9.0.0",
