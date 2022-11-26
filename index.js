@@ -9,6 +9,10 @@ const GameInfo = require("./Model/game_gameinfo");
 const Account = require("./Model/account_account");
 const Connection = require("@longanphuc/orm-mysql/connection");
 const { v1: uuidv1, v4: uuidv4 } = require("uuid");
+const axios = require('axios');
+const key ="SqgfZ1SE4v3OKlWezV1ft3PrP3O17zi0pEU2O1FcRQORp5YUjv"
+const URL = process.platform == "win32"?"http://127.0.0.1:8000/" :"https://api.soccerlegend.devmini.com/"
+
 
 const app = express();
 const port = process.env.PORT || 3000;;
@@ -204,105 +208,45 @@ wss.on("connection", function (ws, req) {
 
   ws.sendResult = async (data) => {
     try{
+      console.log("sendResult")
       redScore = data.redScore;
       blueScore = data.blueScore;
       if (ws.IsMaster) {
-        Connection.beginTransaction();
-        try {
-          let game = new Game();
-          game.redScore = redScore;
-          game.blueScore = blueScore;
-          game.master = ws.account.id;
-          var today = new Date();
-          var date =
-            today.getFullYear() +
-            "-" +
-            (today.getMonth() + 1) +
-            "-" +
-            today.getDate();
-          var time =
-            today.getHours() +
-            ":" +
-            today.getMinutes() +
-            ":" +
-            today.getSeconds();
-          var dateTime = date + " " + time;
-          game.date = dateTime;
-          await game.save();
-          for (const client of wss.clients) {
-            if (client.roomID == ws.roomID) {
-              let gameInfo = new GameInfo();
-              let player_context = new Context(Player);
-              let player = await player_context.find(client.account.id);
-              gameInfo.gameID = game.id;
-              gameInfo.playerID = client.account.id;
-              gameInfo.team = client.team.team;
-              gameInfo.name = player.name;
-              gameInfo.level = player.level;
-              gameInfo.save();
-              ws.setNewAttribule(redScore, blueScore, player, client);
-              player.update();
-            }
+        let playerTeam = []
+        wss.clients.forEach(client => {
+          if (client.roomID == ws.roomID){
+            playerTeam.push(client.team)
           }
-          Connection.commit();
-          for (const client of wss.clients) {
-            if (client.roomID == ws.roomID) {
-              let player_context = new Context(Player);
-              let player = await player_context.find(ws.account.id);
-              client.send(
-                JSON.stringify({
-                  type: "endGame",
-                  data: JSON.stringify({
-                    player: JSON.stringify(player.toObject()),
-                    gameID: game.id,
-                  }),
-                })
-              );
-            }
-          }
-        } catch {
-          Connection.rollback();
+        })
+        let data = {
+          key: key,
+          redScore: redScore,
+          blueScore: blueScore,
+          playerTeam: playerTeam,
+          master: ws.account.id
         }
+        console.log(URL + "game/send-game-results")
+        axios.post(URL + "game/send-game-results", data).then((response) => {
+          console.log(response)
+          wss.clients.forEach(async client => {
+            let player_context = new Context(Player)
+            let player = await player_context.find(ws.account.id)
+            client.send(
+              JSON.stringify({
+                type: "endGame",
+                data: JSON.stringify({
+                  player: JSON.stringify(player.toObject()),
+                  gameID: response.data.gameID,
+                }),
+              })
+            );
+          })
+        }).catch(function (error) {
+          console.log(error);
+        })    
       }
     }catch(err){
       ws.send("error: " + err.message);
-    }
-  };
-
-  ws.setNewAttribule = (redScore, blueScore, player, client) => {
-    if (redScore > blueScore) {
-      if (client.team.team == 0) {
-        player.fans += 100;
-        ws.addExp(player, 80);
-      } else {
-        player.fans -= 50;
-        ws.addExp(player, 20);
-      }
-    } else if (blueScore > redScore) {
-      if (client.team.team == 1) {
-        player.fans += 100;
-        ws.addExp(player, 80);
-      } else {
-        player.fans -= 50;
-        ws.addExp(player, 20);
-      }
-    } else {
-      ws.addExp(player, 50);
-    }
-  };
-
-  ws.addExp = (player, exp) => {
-    if (player.level < 30) {
-      player.exp += exp;
-      if (player.exp >= Math.floor(Math.pow(1.4, player.level - 1) + 800)) {
-        player.level += 1;
-        if (player.level < 30) {
-          player.exp -= Math.floor(Math.pow(1.4, player.level - 1) + 800);
-        } else {
-          player.exp = 0;
-        }
-        player.point += 1;
-      }
     }
   };
 
