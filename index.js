@@ -2,7 +2,6 @@ const express = require("express");
 const { createServer } = require("http");
 const WebSocket = require("ws");
 const mysql = require("mysql2");
-const axios = require("axios");
 const Context = require("@longanphuc/orm-mysql").Context;
 const Player = require("./Model/player_player");
 const Game = require("./Model/game_game");
