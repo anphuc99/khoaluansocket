@@ -51,7 +51,7 @@ wss.on("connection", function (ws, req) {
   ws.login = async (data) => {
     let account_context = new Context(Account);
     let account = await account_context.where("_token", data).first();
-    if (account !== undefined) {      
+    if (account !== undefined) {        
       ws.account = account.toObject();
       wss.clients.forEach(client => {
         if (client.account.id == ws.account.id && client.id != ws.id){
@@ -66,6 +66,7 @@ wss.on("connection", function (ws, req) {
 
   ws.createRoom = async (data) => {
     console.log("createRoom");
+    console.log(ws.account)
     if (ws.account._token == data._token) {
       ws.roomID = data.roomID;
       ws.clientID = data.clientID;

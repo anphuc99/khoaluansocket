@@ -1,7 +1,7 @@
 const Model = require("@longanphuc/orm-mysql").Model
 class account_account extends Model {
     constructor(){
-        super("account_account")
+        super("Account_account")
         this.$primaryKey = "id"
         this.id = undefined
         this.name = undefined
