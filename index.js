@@ -1,12 +1,19 @@
 const express = require("express");
 const { createServer } = require("http");
 const WebSocket = require("ws");
+const fs = require('fs');
 const { v1: uuidv1, v4: uuidv4 } = require("uuid");
 const axios = require("axios");
+const { fstat } = require("fs");
 const key = "SqgfZ1SE4v3OKlWezV1ft3PrP3O17zi0pEU2O1FcRQORp5YUjv";
+const log = (...data) =>{
+  console.log(...data)
+
+  fs.appendFileSync(__dirname +"/log.txt","\n"+ data.join("\t"))
+}
 const URL =
   process.platform == "win32"
-    ? "http://127.0.0.1:8000/"
+    ? "https://api.soccerlegend.devmini.com/"
     : "https://api.soccerlegend.devmini.com/";
 
 const app = express();
@@ -28,14 +35,13 @@ wss.sendRoom = (roomID, data) => {
 };
 
 wss.on("connection", function (ws, req) {
-  console.log("client joined.");
   ws.id = uuidv4();
-  console.log(ws.id);
+  log("client joined.",ws.id);  
   ws.send("v: 26-11-2022 01:39");
   ws.on("message", function (data) {
     try {
-      console.log(data);
-      console.log(ws._token);
+      log(data);
+      log(ws._token);
       obj = JSON.parse(data);
       if (obj.type)
         if (ws[obj.type]) {
@@ -47,6 +53,7 @@ wss.on("connection", function (ws, req) {
   });
 
   ws.login = async (data) => {
+    log("login", ws.id)
     try {
       axios
         .post(URL + "account/get-account", {
@@ -63,9 +70,10 @@ wss.on("connection", function (ws, req) {
 
   ws.createRoom = async (data) => {
     try {
-      console.log("createRoom");
-      console.log(ws.account);
+      log("createRoom", ws.id);
+      log(ws.account);
       if (ws.account._token == data._token) {
+        log("createRoom token")
         ws.roomID = data.roomID;
         ws.clientID = data.clientID;
         ws.IsMaster = true;
@@ -88,8 +96,9 @@ wss.on("connection", function (ws, req) {
 
   ws.joinRoom = (data) => {
     try {
-      console.log("joinRoom");
+      log("joinRoom", ws.id);
       if (ws.account._token == data._token) {
+        log("joinRoom token")
         ws.roomID = data.roomID;
         ws.clientID = data.clientID;
         ws.send(
@@ -111,7 +120,7 @@ wss.on("connection", function (ws, req) {
 
   ws.onGameBeginStart = (data) => {
     try {
-      console.log("onGameBeginStart");
+      log("onGameBeginStart", ws.id);
       if (ws.IsMaster) {
         let playerList = [];
         wss.clients.forEach((client) => {
@@ -156,7 +165,7 @@ wss.on("connection", function (ws, req) {
 
   ws.disconnectPhoton = (data) => {
     try {
-      console.log("disconnectPhoton");
+      log("disconnectPhoton", ws.id);
       roomID = ws.roomID;
       ws.roomID = undefined;
       ws.clientID = undefined;
@@ -196,7 +205,7 @@ wss.on("connection", function (ws, req) {
 
   ws.sendResult = async (data) => {
     try {
-      console.log("sendResult");
+      log("sendResult", ws.id);
       redScore = data.redScore;
       blueScore = data.blueScore;
       if (ws.IsMaster) {
@@ -213,7 +222,7 @@ wss.on("connection", function (ws, req) {
           playerTeam: playerTeam,
           master: ws.account.id,
         };
-        console.log(URL + "game/send-game-results");
+        log(URL + "game/send-game-results");
         axios
           .post(URL + "game/send-game-results", data)
           .then((response) => {
@@ -237,7 +246,7 @@ wss.on("connection", function (ws, req) {
             });
           })
           .catch(function (error) {
-            console.log(error);
+            log(error);
           });
       }
     } catch (err) {
@@ -246,7 +255,7 @@ wss.on("connection", function (ws, req) {
   };
 
   ws.on("close", function () {
-    console.log("client left.");
+    log("client left.", ws.id);
     if (ws.IsMaster) {
       ws.setNewMastser(ws.roomID);
     }
@@ -254,7 +263,7 @@ wss.on("connection", function (ws, req) {
 });
 
 server.listen(port, function () {
-  console.log(`Listening on http://localhost:${port}`);
+  log(`Listening on http://localhost:${port}`);
 });
 
 function shuffle(array) {
