@@ -17,7 +17,7 @@ const log = (...data) =>{
       str += dt + "\t"
     }
   }
-  fs.appendFileSync(__dirname +"/log.txt","\n"+ str)
+  fs.appendFileSync(__dirname +"/log.txt",`\n [${new Date().toLocaleString("en-US").toString()}]:${str}`)
 }
 const URL =
   process.platform == "win32"
@@ -28,7 +28,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
-  res.send("<h1>Hello world v: 1-12-2022 08:06</h1>");
+  res.send("<h1>Hello world v: 1-12-2022 08:42</h1>");
 });
 
 const server = createServer(app);
@@ -45,7 +45,7 @@ wss.sendRoom = (roomID, data) => {
 wss.on("connection", function (ws, req) {
   ws.id = uuidv4();
   log("client joined.",ws.id);  
-  ws.send("v: 1-12-2022 08:06");
+  ws.send("v: 1-12-2022 08:42");
   ws.on("message", function (data) {
     try {
       log(data);
@@ -63,7 +63,7 @@ wss.on("connection", function (ws, req) {
   ws.login = async (data) => {
     log("login", ws.id)
     try {
-      axios
+      await axios
         .post(URL + "account/get-account", {
           _token: data,
           key: key,
@@ -71,7 +71,7 @@ wss.on("connection", function (ws, req) {
         .then((res) => {
           ws.account = res.data.account;
           log(res.data.account)
-        });
+        });   
     } catch (err) {
       ws.send("error: " + err.message);
     }
@@ -80,8 +80,8 @@ wss.on("connection", function (ws, req) {
   ws.createRoom = async (data) => {
     try {
       log("createRoom", ws.id);
-      log(ws.account);
-      if (ws.account._token == data._token) {
+      let account = await ws.getAccount(data._token)
+      if (account._token == data._token) {
         log("createRoom token")
         ws.roomID = data.roomID;
         ws.clientID = data.clientID;
@@ -103,10 +103,11 @@ wss.on("connection", function (ws, req) {
     }
   };
 
-  ws.joinRoom = (data) => {
+  ws.joinRoom = async (data) => {
     try {
       log("joinRoom", ws.id);
-      if (ws.account._token == data._token) {
+      let account = await ws.getAccount(data._token)
+      if (account._token == data._token) {
         log("joinRoom token")
         ws.roomID = data.roomID;
         ws.clientID = data.clientID;
@@ -262,6 +263,26 @@ wss.on("connection", function (ws, req) {
       ws.send("error: " + err.message);
     }
   };
+
+  ws.getAccount = async (_token) =>{
+    if(ws.account == null){
+      try {
+        await axios
+          .post(URL + "account/get-account", {
+            _token: _token,
+            key: key,
+          })
+          .then((res) => {
+            ws.account = res.data.account;
+            log(res.data.account)
+          });   
+        return ws.account
+      } catch (err) {
+        ws.send("error: " + err.message);
+      }
+    }
+    return ws.account
+  }
 
   ws.on("close", function () {
     log("client left.", ws.id);
