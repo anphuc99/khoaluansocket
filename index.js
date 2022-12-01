@@ -8,8 +8,16 @@ const { fstat } = require("fs");
 const key = "SqgfZ1SE4v3OKlWezV1ft3PrP3O17zi0pEU2O1FcRQORp5YUjv";
 const log = (...data) =>{
   console.log(...data)
-
-  fs.appendFileSync(__dirname +"/log.txt","\n"+ data.join("\t"))
+  let str = ""
+  for(const dt of data){
+    if (typeof dt == "object"){
+      str += JSON.stringify(dt, null, "\t") +"\n"
+    }
+    else{
+      str += dt + "\t"
+    }
+  }
+  fs.appendFileSync(__dirname +"/log.txt","\n"+ str)
 }
 const URL =
   process.platform == "win32"
@@ -62,6 +70,7 @@ wss.on("connection", function (ws, req) {
         })
         .then((res) => {
           ws.account = res.data.account;
+          log(res.data.account)
         });
     } catch (err) {
       ws.send("error: " + err.message);
