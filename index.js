@@ -28,7 +28,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
-  res.send("<h1>Hello world v: 1-12-2022 07:44</h1>");
+  res.send("<h1>Hello world v: 1-12-2022 08:06</h1>");
 });
 
 const server = createServer(app);
@@ -45,7 +45,7 @@ wss.sendRoom = (roomID, data) => {
 wss.on("connection", function (ws, req) {
   ws.id = uuidv4();
   log("client joined.",ws.id);  
-  ws.send("v: 1-12-2022 07:44");
+  ws.send("v: 1-12-2022 08:06");
   ws.on("message", function (data) {
     try {
       log(data);
